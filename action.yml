@@ -1,0 +1,56 @@
+
+name: Delete Package Version
+
+description: Deletes package version
+
+author: 1o1 inc.
+
+inputs:
+
+  version:
+    description: version name. Ex) set `github.event.release.tag_name`
+    required: true
+    
+  name:
+    description: >
+      Name of the package containing the version to delete.
+    required: true
+
+  package-type:
+    description: >
+      Type of package. Can be one of container, maven, npm, nuget, or rubygems.
+    required: true
+
+  token:
+    description: >
+      Github token. `secrets.GITHUB_TOKEN`
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Delete Version
+      shell: bash
+      run: |
+          API_URL="orgs/${{github.event.organization.login}}/packages/${{inputs.package-type}}/${{inputs.name}}/versions"
+
+          VERSION_ID=$(gh api \
+            --method GET \
+            -H "Accept: application/vnd.github+json" \
+            "$API_URL" \
+            --jq 'map(select(.name == "'${{inputs.version}}'")) | .[0].id')
+          
+          echo "::notice::Delete Package ${VERSION_ID}"
+
+          if [ -z "$VERSION_ID" ]; then
+            echo "::notice::No package found"
+          else
+            $(gh api \
+              --method DELETE \
+              --input /dev/null \
+              -H "Accept: application/vnd.github+json" \
+              "${API_URL}/${VERSION_ID}" \
+            )
+          fi
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
